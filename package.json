@@ -1,0 +1,13 @@
+{
+  "name": "syllabus",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @syllabus/template-default dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @syllabus/template-default db:generate",
+    "db:push": "pnpm --filter @syllabus/template-default db:push"
+  }
+}
