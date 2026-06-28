@@ -37,10 +37,40 @@ export type SyllabusSession = {
   references: SessionReference[];
 };
 
+export type OverviewSlide = {
+  id: string;
+  title: string;
+  content: string;
+};
+
+export type OverviewPdf = {
+  id: string;
+  fileName: string;
+};
+
+export type SyllabusOverview = {
+  textbookName: string;
+  courseGoals: string;
+  targetStudentLevel: string;
+  plannedSessionCount: number | null;
+  slides: OverviewSlide[];
+  pdfs: OverviewPdf[];
+};
+
+export const emptySyllabusOverview = (): SyllabusOverview => ({
+  textbookName: "",
+  courseGoals: "",
+  targetStudentLevel: "",
+  plannedSessionCount: null,
+  slides: [],
+  pdfs: [],
+});
+
 export type SyllabusDetail = {
   id: string;
   title: string;
   description: string | null;
   status: "draft" | "published" | "archived";
+  overview: SyllabusOverview;
   sessions: SyllabusSession[];
 };

@@ -10,3 +10,5 @@ dist
 coverage
 drizzle
 *.tsbuildinfo
+.vercel
+.env*

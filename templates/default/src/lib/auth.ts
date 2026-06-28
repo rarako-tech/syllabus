@@ -39,23 +39,47 @@ export async function syncIdentity(): Promise<AuthContext | null> {
     .filter(Boolean)
     .join(" ");
 
-  const [dbUser] = await db
-    .insert(users)
-    .values({ clerkUserId: userId, email, name })
-    .onConflictDoUpdate({
-      target: users.clerkUserId,
-      set: { email, name },
-    })
-    .returning();
+  let dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkUserId, userId),
+  });
 
-  const [dbOrg] = await db
-    .insert(organizations)
-    .values({ clerkOrgId: orgId, name: clerkOrg.name })
-    .onConflictDoUpdate({
-      target: organizations.clerkOrgId,
-      set: { name: clerkOrg.name },
-    })
-    .returning();
+  if (dbUser) {
+    [dbUser] = await db
+      .update(users)
+      .set({ email, name })
+      .where(eq(users.id, dbUser.id))
+      .returning();
+  } else {
+    [dbUser] = await db
+      .insert(users)
+      .values({ clerkUserId: userId, email, name })
+      .returning();
+  }
+
+  if (!dbUser) {
+    throw new Error("ユーザー情報の保存に失敗しました");
+  }
+
+  let dbOrg = await db.query.organizations.findFirst({
+    where: eq(organizations.clerkOrgId, orgId),
+  });
+
+  if (dbOrg) {
+    [dbOrg] = await db
+      .update(organizations)
+      .set({ name: clerkOrg.name })
+      .where(eq(organizations.id, dbOrg.id))
+      .returning();
+  } else {
+    [dbOrg] = await db
+      .insert(organizations)
+      .values({ clerkOrgId: orgId, name: clerkOrg.name })
+      .returning();
+  }
+
+  if (!dbOrg) {
+    throw new Error("組織情報の保存に失敗しました");
+  }
 
   const role: "admin" | "member" =
     orgRole === "org:admin" ? "admin" : "member";

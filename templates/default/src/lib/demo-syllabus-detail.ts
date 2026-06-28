@@ -1,5 +1,26 @@
-import type { SyllabusDetail } from "@/lib/types/syllabus-detail";
+import type { SyllabusDetail, SyllabusOverview } from "@/lib/types/syllabus-detail";
 import { demoSyllabuses } from "@/lib/demo-data";
+
+const demoOverview1: SyllabusOverview = {
+  textbookName: "実践 Next.js 15 入門",
+  courseGoals:
+    "App Router と Server Actions を使い、認証付きの CRUD アプリを自力で構築できる。",
+  targetStudentLevel: "HTML/CSS の基礎あり。JavaScript は読める程度。",
+  plannedSessionCount: 15,
+  slides: [
+    {
+      id: "demo-overview-slide-1",
+      title: "第1回：開発環境",
+      content: "〜てください\n〜ましょう\n〜ことができます",
+    },
+    {
+      id: "demo-overview-slide-2",
+      title: "第2回：ルーティング",
+      content: "〜たいです\n〜なければなりません\n〜ほうがいいです",
+    },
+  ],
+  pdfs: [],
+};
 
 const session1 = {
   id: "demo-s1-1",
@@ -182,6 +203,7 @@ const details: Record<string, SyllabusDetail> = {
     title: demoSyllabuses[0].title,
     description: demoSyllabuses[0].description,
     status: demoSyllabuses[0].status,
+    overview: demoOverview1,
     sessions: [session1, session2, session3],
   },
   "demo-2": {
@@ -189,6 +211,14 @@ const details: Record<string, SyllabusDetail> = {
     title: demoSyllabuses[1].title,
     description: demoSyllabuses[1].description,
     status: demoSyllabuses[1].status,
+    overview: {
+      textbookName: "データベース設計の基礎",
+      courseGoals: "正規化と ER 図を使い、実務に耐えるスキーマを設計できる。",
+      targetStudentLevel: "SQL の SELECT は書ける。",
+      plannedSessionCount: 10,
+      slides: [],
+      pdfs: [],
+    },
     sessions: [
       {
         ...session1,
@@ -217,6 +247,14 @@ const details: Record<string, SyllabusDetail> = {
     title: demoSyllabuses[2].title,
     description: demoSyllabuses[2].description,
     status: demoSyllabuses[2].status,
+    overview: {
+      textbookName: "",
+      courseGoals: "",
+      targetStudentLevel: "",
+      plannedSessionCount: null,
+      slides: [],
+      pdfs: [],
+    },
     sessions: [
       {
         ...session1,

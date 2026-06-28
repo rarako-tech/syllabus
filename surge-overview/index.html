@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="コースの内容・教案・教材を一画面で扱える授業計画ツールの紹介。4ペイン構成とClaude連携などの工夫を図解で説明します。"
+    />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="カリキュラムと授業計画のツール" />
+    <meta
+      property="og:description"
+      content="「コースの内容」「教案」「教材」が一つの画面で見られて操作できる。授業・科目の説明に役立つツールです。"
+    />
+    <meta property="og:image" content="https://syllabus-curriculum-tool.surge.sh/images/tool-screenshot.png" />
+    <meta property="og:url" content="https://syllabus-curriculum-tool.surge.sh/" />
+    <meta property="og:locale" content="ja_JP" />
+    <title>カリキュラムと授業計画のツール</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --washi: #f4efe6;
+        --washi-deep: #ebe4d8;
+        --washi-border: #d9cfc0;
+        --ink: #3d3832;
+        --ink-muted: #6b6358;
+        --accent: #8b7355;
+        --card: rgba(255, 252, 247, 0.92);
+        --shadow: 0 2px 12px rgba(61, 56, 50, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Noto Sans JP", sans-serif;
+        color: var(--ink);
+        background-color: var(--washi);
+        background-image:
+          radial-gradient(
+            ellipse 120% 80% at 50% -20%,
+            rgba(255, 255, 255, 0.5),
+            transparent 60%
+          ),
+          repeating-linear-gradient(
+            93deg,
+            transparent,
+            transparent 48px,
+            rgba(139, 115, 85, 0.02) 48px,
+            rgba(139, 115, 85, 0.02) 49px
+          );
+        line-height: 1.75;
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 3rem;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+
+      h1 {
+        font-family: "Noto Serif JP", serif;
+        font-weight: 600;
+        font-size: clamp(1.6rem, 4vw, 2.1rem);
+        letter-spacing: 0.06em;
+        color: var(--ink);
+        margin-bottom: 0.75rem;
+      }
+
+      .subtitle {
+        font-size: 1rem;
+        color: var(--ink-muted);
+        max-width: 42rem;
+        margin: 0 auto;
+        line-height: 1.85;
+      }
+
+      .screenshot-area {
+        background: var(--card);
+        border: 1px solid var(--washi-border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        margin-bottom: 2.5rem;
+        overflow: hidden;
+      }
+
+      .screenshot-label {
+        padding: 0.65rem 1.25rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--accent);
+        border-bottom: 1px solid var(--washi-border);
+        background: var(--washi-deep);
+      }
+
+      .screenshot-img {
+        width: 100%;
+        height: auto;
+        display: block;
+        vertical-align: middle;
+        background: #faf7f2;
+      }
+
+      .screenshot-placeholder {
+        aspect-ratio: 16 / 7;
+        min-height: 200px;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        background: linear-gradient(
+          165deg,
+          #faf7f2 0%,
+          #efe8dc 50%,
+          #e8e0d4 100%
+        );
+        color: var(--ink-muted);
+        font-size: 0.95rem;
+      }
+
+      .screenshot-placeholder.is-visible {
+        display: flex;
+      }
+
+      .screenshot-placeholder span {
+        font-size: 0.8rem;
+        opacity: 0.85;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+      }
+
+      @media (max-width: 720px) {
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--washi-border);
+        border-radius: 10px;
+        padding: 1.35rem 1.4rem 1.5rem;
+        box-shadow: var(--shadow);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.65rem;
+        border-bottom: 1px solid var(--washi-deep);
+      }
+
+      .card-num {
+        font-family: "Noto Serif JP", serif;
+        font-weight: 600;
+        font-size: 1.15rem;
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+
+      .card-title {
+        font-family: "Noto Serif JP", serif;
+        font-weight: 600;
+        font-size: 1.05rem;
+        letter-spacing: 0.03em;
+      }
+
+      .card ul {
+        list-style: none;
+        font-size: 0.92rem;
+        color: var(--ink);
+      }
+
+      .card li {
+        position: relative;
+        padding-left: 1.1rem;
+        margin-bottom: 0.65rem;
+      }
+
+      .card li:last-child {
+        margin-bottom: 0;
+      }
+
+      .card li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.65em;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        opacity: 0.55;
+      }
+
+      .pane-list {
+        margin-top: 0.25rem;
+      }
+
+      .pane-list li::before {
+        border-radius: 1px;
+        width: 4px;
+        height: 4px;
+      }
+
+      .pane-wide {
+        font-weight: 500;
+        color: var(--accent);
+      }
+
+      .link-note {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--ink-muted);
+        padding: 0.5rem 0.75rem;
+        background: var(--washi-deep);
+        border-radius: 6px;
+      }
+
+      .card--with-figures {
+        grid-column: 1 / -1;
+      }
+
+      .card-figures {
+        margin-top: 1.15rem;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+
+      @media (max-width: 720px) {
+        .card-figures {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card-figure {
+        margin: 0;
+        border: 1px solid var(--washi-border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .card-figure img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .card-figure figcaption {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.78rem;
+        color: var(--ink-muted);
+        background: var(--washi-deep);
+        border-top: 1px solid var(--washi-border);
+        line-height: 1.5;
+      }
+
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--washi-border);
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--ink-muted);
+        letter-spacing: 0.08em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <h1>カリキュラムと授業計画のツール</h1>
+        <p class="subtitle">
+          「コースの内容」「教案」「教材」が、一つの画面で見られて操作できる。授業・科目の説明をするときに役立つツールです。
+        </p>
+      </header>
+
+      <section class="screenshot-area" aria-label="ツール画面のキャプチャ">
+        <div class="screenshot-label">ツール画面</div>
+        <img
+          id="tool-screenshot"
+          class="screenshot-img"
+          src="images/tool-screenshot.png"
+          alt="カリキュラムと授業計画のツール画面（4ペイン構成）"
+        />
+        <div id="screenshot-fallback" class="screenshot-placeholder">
+          <p>画像が見つかりません</p>
+          <span>images/tool-screenshot.png を配置してください</span>
+        </div>
+      </section>
+      <script>
+        document.getElementById("tool-screenshot").addEventListener("error", function () {
+          this.style.display = "none";
+          document.getElementById("screenshot-fallback").classList.add("is-visible");
+        });
+      </script>
+
+      <section class="cards">
+        <article class="card">
+          <div class="card-header">
+            <span class="card-num">①</span>
+            <h2 class="card-title">解決できる課題</h2>
+          </div>
+          <ul>
+            <li>
+              「各時間の目標」「授業計画」「教案」「教材」がバラバラに存在し、毎度立ち上げが必要だった問題を、一つの画面で解決
+            </li>
+            <li>学科全体のカリキュラムが一画面で確認できる</li>
+            <li>
+              科目説明の際にこのツールを見せながら話すと細かいところまで伝わりやすい
+            </li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-num">②</span>
+            <h2 class="card-title">4 つのペイン構成</h2>
+          </div>
+          <ul class="pane-list">
+            <li>① 各回で教える内容</li>
+            <li class="pane-wide">② タイムスケジュール・教案メモ（広め表示）</li>
+            <li>③ 各回のスライド</li>
+            <li>④ 参照リンク・メモ</li>
+          </ul>
+          <p class="link-note">① を選ぶと ②③④ が連動して表示される</p>
+        </article>
+
+        <article class="card card--with-figures">
+          <div class="card-header">
+            <span class="card-num">③</span>
+            <h2 class="card-title">工夫したポイント</h2>
+          </div>
+          <ul>
+            <li>教案ペインを広く表示。教員が最も気になる部分を大きく見せる</li>
+            <li>
+              教案を自分で考えてから、改善がほしいとき💡ボタンを押すと Claude に飛ぶ仕組みを実装
+            </li>
+            <li>貼り付けるだけで質問文が自動入力される</li>
+          </ul>
+          <div class="card-figures">
+            <figure class="card-figure">
+              <img
+                src="images/feature-schedule-ai.png"
+                alt="②タイムスケジュール・教案メモの各行に💡ボタン"
+              />
+              <figcaption>② 教案ペイン：各行の 💡 から Claude へ</figcaption>
+            </figure>
+            <figure class="card-figure">
+              <img
+                src="images/feature-claude-prompt.png"
+                alt="Claude.ai に授業活動の質問文が入力された状態"
+              />
+              <figcaption>貼り付けるだけで質問文が用意される</figcaption>
+            </figure>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-num">④</span>
+            <h2 class="card-title">苦戦したポイント</h2>
+          </div>
+          <ul>
+            <li>API キーが必要で AI の自動提案機能は断念</li>
+            <li>
+              Claude の API は有料、Gemini は API キー取得にカード情報が必要で保留
+            </li>
+            <li>Claude ブラウザに飛ぶ方式はワンクリックが増える課題あり</li>
+            <li>現在は試作段階。今後改善予定</li>
+          </ul>
+        </article>
+      </section>
+
+      <footer>試作段階・開発中</footer>
+    </div>
+  </body>
+</html>

@@ -8,6 +8,7 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "db:generate": "pnpm --filter @syllabus/template-default db:generate",
-    "db:push": "pnpm --filter @syllabus/template-default db:push"
+    "db:push": "pnpm --filter @syllabus/template-default db:push",
+    "deploy:overview": "npx surge surge-overview syllabus-curriculum-tool.surge.sh"
   }
 }

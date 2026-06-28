@@ -80,11 +80,37 @@ export const syllabuses = pgTable("syllabuses", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
+  textbookName: text("textbook_name"),
+  courseGoals: text("course_goals"),
+  targetStudentLevel: text("target_student_level"),
+  plannedSessionCount: integer("planned_session_count"),
   status: syllabusStatusEnum("status").notNull().default("draft"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const syllabusOverviewSlides = pgTable("syllabus_overview_slides", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  syllabusId: uuid("syllabus_id")
+    .notNull()
+    .references(() => syllabuses.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+});
+
+export const syllabusOverviewPdfs = pgTable("syllabus_overview_pdfs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  syllabusId: uuid("syllabus_id")
+    .notNull()
+    .references(() => syllabuses.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  fileName: text("file_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
@@ -173,7 +199,29 @@ export const syllabusesRelations = relations(syllabuses, ({ one, many }) => ({
     references: [organizations.id],
   }),
   sessions: many(syllabusSessions),
+  overviewSlides: many(syllabusOverviewSlides),
+  overviewPdfs: many(syllabusOverviewPdfs),
 }));
+
+export const syllabusOverviewSlidesRelations = relations(
+  syllabusOverviewSlides,
+  ({ one }) => ({
+    syllabus: one(syllabuses, {
+      fields: [syllabusOverviewSlides.syllabusId],
+      references: [syllabuses.id],
+    }),
+  }),
+);
+
+export const syllabusOverviewPdfsRelations = relations(
+  syllabusOverviewPdfs,
+  ({ one }) => ({
+    syllabus: one(syllabuses, {
+      fields: [syllabusOverviewPdfs.syllabusId],
+      references: [syllabuses.id],
+    }),
+  }),
+);
 
 export const syllabusSessionsRelations = relations(
   syllabusSessions,

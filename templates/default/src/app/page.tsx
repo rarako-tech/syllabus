@@ -34,6 +34,9 @@ export default function HomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
+          <Button variant="outline" asChild>
+            <Link href="/overview">ツール紹介（図解・公開）</Link>
+          </Button>
           <Button asChild>
             <Link href="/dashboard">ダッシュボードを開く</Link>
           </Button>

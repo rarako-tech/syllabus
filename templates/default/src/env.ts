@@ -5,6 +5,7 @@ export const env = createEnv({
   server: {
     CLERK_SECRET_KEY: z.string().min(1).optional(),
     POSTGRES_URL: z.string().url().optional(),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
@@ -16,6 +17,7 @@ export const env = createEnv({
   runtimeEnv: {
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
     POSTGRES_URL: process.env.POSTGRES_URL,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXT_PUBLIC_CLERK_SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,

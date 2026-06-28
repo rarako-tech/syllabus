@@ -7,6 +7,7 @@ import { isClerkConfigured } from "@/env";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/overview(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/select-org(.*)",

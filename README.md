@@ -17,6 +17,19 @@ cp .env.example .env.local
 node ../../packages/create-syllabus/bin/cli.js my-app
 ```
 
+## ツール紹介（公開）
+
+ログイン不要の図解ページ:
+
+- **Surge:** https://syllabus-curriculum-tool.surge.sh
+- ローカル（Next.js）: http://localhost:3000/overview
+
+再デプロイ: `pnpm deploy:overview` — 詳細は [docs/OVERVIEW_PUBLIC.md](docs/OVERVIEW_PUBLIC.md)
+
+## データの保存方針
+
+[docs/DATA_STORAGE.md](docs/DATA_STORAGE.md) — DB / リポジトリ / 外部サービスの役割分担
+
 ## Clerk セットアップ
 
 [docs/CLERK_SETUP.md](docs/CLERK_SETUP.md) を参照してください。
