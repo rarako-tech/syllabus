@@ -1,5 +1,6 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
@@ -15,6 +16,7 @@ import {
 } from "@/db/schema";
 import { failure, success, type ActionResult } from "@/lib/action-result";
 import { requireAuthContext } from "@/lib/auth";
+import { withDbRetry } from "@/lib/db-retry";
 import { saveOverviewPdf } from "@/lib/overview-pdf-storage";
 import { syllabusSessionSchema } from "@/lib/validations/syllabus-session";
 import { scheduleItemSchema } from "@/lib/validations/session-schedule";
@@ -54,7 +56,8 @@ export type SyllabusDetailAccess =
   | { status: "ok"; detail: SyllabusDetail }
   | { status: "not_found" }
   | { status: "wrong_org"; title: string; orgName: string }
-  | { status: "unauthorized" };
+  | { status: "unauthorized" }
+  | { status: "db_error"; message: string };
 
 export async function resolveSyllabusDetailAccess(
   syllabusId: string,
@@ -62,38 +65,56 @@ export async function resolveSyllabusDetailAccess(
   let ctx;
   try {
     ctx = await requireAuthContext();
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "データベースへの接続に失敗しました"
+    ) {
+      return {
+        status: "db_error",
+        message: error.message,
+      };
+    }
     return { status: "unauthorized" };
   }
 
-  const [syllabus] = await db
-    .select({
-      id: syllabuses.id,
-      title: syllabuses.title,
-      organizationId: syllabuses.organizationId,
-    })
-    .from(syllabuses)
-    .where(eq(syllabuses.id, syllabusId))
-    .limit(1);
-
-  if (!syllabus) return { status: "not_found" };
-
-  if (syllabus.organizationId !== ctx.organizationId) {
-    const [org] = await db
-      .select({ name: organizations.name })
-      .from(organizations)
-      .where(eq(organizations.id, syllabus.organizationId))
+  try {
+    const [syllabus] = await db
+      .select({
+        id: syllabuses.id,
+        title: syllabuses.title,
+        organizationId: syllabuses.organizationId,
+      })
+      .from(syllabuses)
+      .where(eq(syllabuses.id, syllabusId))
       .limit(1);
+
+    if (!syllabus) return { status: "not_found" };
+
+    if (syllabus.organizationId !== ctx.organizationId) {
+      const [org] = await db
+        .select({ name: organizations.name })
+        .from(organizations)
+        .where(eq(organizations.id, syllabus.organizationId))
+        .limit(1);
+      return {
+        status: "wrong_org",
+        title: syllabus.title,
+        orgName: org?.name ?? "別の組織",
+      };
+    }
+
+    const detail = await getSyllabusDetail(syllabusId);
+    if (!detail) return { status: "not_found" };
+    return { status: "ok", detail };
+  } catch (error) {
+    console.error("resolveSyllabusDetailAccess failed:", error);
     return {
-      status: "wrong_org",
-      title: syllabus.title,
-      orgName: org?.name ?? "別の組織",
+      status: "db_error",
+      message:
+        "データベースへの接続に失敗しました。ネットワークを確認して、ページを再読み込みしてください。",
     };
   }
-
-  const detail = await getSyllabusDetail(syllabusId);
-  if (!detail) return { status: "not_found" };
-  return { status: "ok", detail };
 }
 
 function mapOverview(
@@ -395,22 +416,39 @@ export async function uploadSyllabusOverviewPdfs(
 }
 
 export async function getOverviewPdfAccess(pdfId: string) {
-  const ctx = await requireAuthContext();
+  const { orgId } = await auth();
+  if (!orgId) return null;
 
-  const [row] = await db
-    .select({
-      id: syllabusOverviewPdfs.id,
-      syllabusId: syllabusOverviewPdfs.syllabusId,
-      fileName: syllabusOverviewPdfs.fileName,
-      organizationId: syllabuses.organizationId,
-    })
-    .from(syllabusOverviewPdfs)
-    .innerJoin(syllabuses, eq(syllabusOverviewPdfs.syllabusId, syllabuses.id))
-    .where(eq(syllabusOverviewPdfs.id, pdfId))
-    .limit(1);
+  try {
+    const [row] = await withDbRetry(() =>
+      db
+        .select({
+          id: syllabusOverviewPdfs.id,
+          syllabusId: syllabusOverviewPdfs.syllabusId,
+          fileName: syllabusOverviewPdfs.fileName,
+        })
+        .from(syllabusOverviewPdfs)
+        .innerJoin(
+          syllabuses,
+          eq(syllabusOverviewPdfs.syllabusId, syllabuses.id),
+        )
+        .innerJoin(
+          organizations,
+          eq(syllabuses.organizationId, organizations.id),
+        )
+        .where(
+          and(
+            eq(syllabusOverviewPdfs.id, pdfId),
+            eq(organizations.clerkOrgId, orgId),
+          ),
+        )
+        .limit(1),
+    );
 
-  if (!row || row.organizationId !== ctx.organizationId) return null;
-  return row;
+    return row ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function createSyllabusSession(

@@ -2,7 +2,7 @@ import { DashboardHeader } from "@/components/dashboard/header";
 import { syncIdentity } from "@/lib/auth";
 import { isFullyConfigured } from "@/env";
 
-export default async function DashboardLayout({
+export async function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;

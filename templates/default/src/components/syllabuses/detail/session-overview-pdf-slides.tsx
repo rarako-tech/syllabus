@@ -42,8 +42,20 @@ export function SessionOverviewPdfSlides({
       setError(null);
 
       try {
-        const response = await fetch(getOverviewPdfUrl(pdf.id) + "/meta");
-        if (!response.ok) {
+        const url = getOverviewPdfUrl(pdf.id) + "/meta";
+        let response: Response | null = null;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          response = await fetch(url, { credentials: "include" });
+          if (response.ok || response.status === 404) break;
+          if (attempt < 2) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1500 * (attempt + 1)),
+            );
+          }
+        }
+
+        if (!response?.ok) {
           throw new Error("PDF情報の取得に失敗しました");
         }
 

@@ -1,12 +1,5 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import {
-  sessionScheduleItems,
-  syllabusSessions,
-  syllabuses,
-} from "@/db/schema";
 import { failure, success, type ActionResult } from "@/lib/action-result";
 import { requireAuthContext } from "@/lib/auth";
 import {
@@ -25,29 +18,6 @@ const scheduleAdviceInputSchema = z.object({
   studentActivity: z.string(),
   materials: z.string(),
 });
-
-async function requireScheduleItemInOrg(
-  itemId: string,
-  organizationId: string,
-) {
-  const [row] = await db
-    .select({ id: sessionScheduleItems.id })
-    .from(sessionScheduleItems)
-    .innerJoin(
-      syllabusSessions,
-      eq(sessionScheduleItems.sessionId, syllabusSessions.id),
-    )
-    .innerJoin(syllabuses, eq(syllabusSessions.syllabusId, syllabuses.id))
-    .where(
-      and(
-        eq(sessionScheduleItems.id, itemId),
-        eq(syllabuses.organizationId, organizationId),
-      ),
-    )
-    .limit(1);
-
-  return row ?? null;
-}
 
 export async function getScheduleAdvice(
   input: unknown,
@@ -70,12 +40,7 @@ export async function getScheduleAdvice(
       return success({ advice: buildDemoScheduleAdvice(row) });
     }
 
-    const ctx = await requireAuthContext();
-    const existing = await requireScheduleItemInOrg(
-      parsed.data.itemId,
-      ctx.organizationId,
-    );
-    if (!existing) return failure("スケジュール行が見つかりません");
+    await requireAuthContext();
 
     const advice = await generateScheduleAdviceWithAnthropic(row);
     return success({ advice });

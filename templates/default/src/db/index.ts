@@ -16,7 +16,14 @@ function getDb(): AppDb {
     );
   }
 
-  instance = drizzle(neon(connectionString), { schema });
+  instance = drizzle(
+    neon(connectionString, {
+      fetchOptions: {
+        signal: AbortSignal.timeout(60_000),
+      },
+    }),
+    { schema },
+  );
   return instance;
 }
 

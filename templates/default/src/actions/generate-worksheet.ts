@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { syllabusSessions, syllabuses, syllabusOverviewSlides } from "@/db/schema";
 import { failure, success, type ActionResult } from "@/lib/action-result";
 import { requireAuthContext } from "@/lib/auth";
+import { withDbRetry } from "@/lib/db-retry";
 import {
   extractSentencePatterns,
   getOverviewSlideForSession,
@@ -19,22 +20,24 @@ import {
 } from "@/lib/worksheet-docx.server";
 
 async function requireSessionInOrg(sessionId: string, organizationId: string) {
-  const [row] = await db
-    .select({
-      id: syllabusSessions.id,
-      sessionNumber: syllabusSessions.sessionNumber,
-      title: syllabusSessions.title,
-      syllabusId: syllabusSessions.syllabusId,
-    })
-    .from(syllabusSessions)
-    .innerJoin(syllabuses, eq(syllabusSessions.syllabusId, syllabuses.id))
-    .where(
-      and(
-        eq(syllabusSessions.id, sessionId),
-        eq(syllabuses.organizationId, organizationId),
-      ),
-    )
-    .limit(1);
+  const [row] = await withDbRetry(() =>
+    db
+      .select({
+        id: syllabusSessions.id,
+        sessionNumber: syllabusSessions.sessionNumber,
+        title: syllabusSessions.title,
+        syllabusId: syllabusSessions.syllabusId,
+      })
+      .from(syllabusSessions)
+      .innerJoin(syllabuses, eq(syllabusSessions.syllabusId, syllabuses.id))
+      .where(
+        and(
+          eq(syllabusSessions.id, sessionId),
+          eq(syllabuses.organizationId, organizationId),
+        ),
+      )
+      .limit(1),
+  );
 
   return row ?? null;
 }
@@ -64,36 +67,84 @@ export async function generateSessionWorksheet(input: {
     sessionTitle = input.sessionTitle;
     contentText = input.overviewContent;
   } else {
-    const ctx = await requireAuthContext();
-    const session = await requireSessionInOrg(input.sessionId, ctx.organizationId);
-    if (!session) return failure("回が見つかりません");
-
-    const overviewSlideRows = await db
-      .select()
-      .from(syllabusOverviewSlides)
-      .where(eq(syllabusOverviewSlides.syllabusId, session.syllabusId))
-      .orderBy(asc(syllabusOverviewSlides.sortOrder));
-
-    const overviewSlides = overviewSlideRows.map((slide) => ({
-      id: slide.id,
-      title: slide.title,
-      content: slide.content,
-    }));
-
-    const overviewSlide = getOverviewSlideForSession(
-      overviewSlides,
-      session.sessionNumber,
-    );
-
-    if (!overviewSlide) {
-      return failure(
-        `概要タブの第${session.sessionNumber}回スライドが見つかりません。内容を入力してください。`,
-      );
+    try {
+      await requireAuthContext();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "データベースへの接続に失敗しました";
+      return failure(message);
     }
 
-    sessionNumber = session.sessionNumber;
-    sessionTitle = session.title;
-    contentText = overviewSlide.content;
+    const hasClientSessionData =
+      input.sessionNumber != null &&
+      Boolean(input.sessionTitle) &&
+      Boolean(input.overviewContent?.trim());
+
+    if (hasClientSessionData) {
+      sessionNumber = input.sessionNumber!;
+      sessionTitle = input.sessionTitle!;
+      contentText = input.overviewContent!.trim();
+    } else {
+      let ctx;
+      try {
+        ctx = await requireAuthContext();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "データベースへの接続に失敗しました";
+        return failure(message);
+      }
+
+      let session;
+      try {
+        session = await requireSessionInOrg(input.sessionId, ctx.organizationId);
+      } catch {
+        return failure(
+          "データベースへの接続に失敗しました。しばらく待ってから再度お試しください。",
+        );
+      }
+
+      if (!session) return failure("回が見つかりません");
+
+      sessionNumber = session.sessionNumber;
+      sessionTitle = session.title;
+
+      try {
+        const overviewSlideRows = await withDbRetry(() =>
+          db
+            .select()
+            .from(syllabusOverviewSlides)
+            .where(eq(syllabusOverviewSlides.syllabusId, session.syllabusId))
+            .orderBy(asc(syllabusOverviewSlides.sortOrder)),
+        );
+
+        const overviewSlides = overviewSlideRows.map((slide) => ({
+          id: slide.id,
+          title: slide.title,
+          content: slide.content,
+        }));
+
+        const overviewSlide = getOverviewSlideForSession(
+          overviewSlides,
+          session.sessionNumber,
+        );
+
+        if (!overviewSlide) {
+          return failure(
+            `概要タブの第${session.sessionNumber}回スライドが見つかりません。内容を入力してください。`,
+          );
+        }
+
+        contentText = overviewSlide.content;
+      } catch {
+        return failure(
+          "データベースへの接続に失敗しました。しばらく待ってから再度お試しください。",
+        );
+      }
+    }
   }
 
   const patterns = extractSentencePatterns(contentText);

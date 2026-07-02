@@ -44,5 +44,21 @@ export default async function SyllabusDetailPage({ params }: Props) {
     notFound();
   }
 
+  if (access.status === "db_error") {
+    return (
+      <div className="mx-auto max-w-lg space-y-4 py-8">
+        <h1 className="text-xl font-bold">接続エラー</h1>
+        <p className="text-sm text-muted-foreground">{access.message}</p>
+        <p className="text-xs text-muted-foreground">
+          Neon データベースへの接続がタイムアウトした可能性があります。Wi‑Fi
+          を確認し、少し待ってから再読み込みしてください。
+        </p>
+        <Button variant="outline" asChild>
+          <Link href="/syllabuses">シラバス一覧へ</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return <SyllabusDetailView detail={access.detail} />;
 }
