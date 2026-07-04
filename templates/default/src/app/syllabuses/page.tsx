@@ -29,15 +29,12 @@ export default async function SyllabusesPage() {
       redirect("/sign-in");
     }
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "データベースへの接続に失敗しました";
-
     return (
       <div className="mx-auto max-w-lg space-y-4 py-8">
         <h1 className="text-xl font-bold">接続エラー</h1>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-sm text-muted-foreground">
+          データベースへの接続に失敗しました。
+        </p>
         <p className="text-xs text-muted-foreground">
           Neon データベースへの接続がタイムアウトした可能性があります。少し待ってから再読み込みしてください。
         </p>

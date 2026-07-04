@@ -36,6 +36,8 @@ import type {
 
 const MAX_OVERVIEW_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_OVERVIEW_PDFS_PER_UPLOAD = 20;
+const DB_CONNECTION_ERROR_MESSAGE =
+  "データベースへの接続に失敗しました。少し待ってから再度お試しください。";
 
 function isPdfFile(file: File) {
   return (
@@ -50,6 +52,17 @@ function mapOverviewPdfs(
     id: pdf.id,
     fileName: pdf.fileName,
   }));
+}
+
+function toActionErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (error.message === "Unauthorized") return error.message;
+    if (error.message === "データベースへの接続に失敗しました") {
+      return DB_CONNECTION_ERROR_MESSAGE;
+    }
+  }
+
+  return DB_CONNECTION_ERROR_MESSAGE;
 }
 
 export type SyllabusDetailAccess =
@@ -502,17 +515,19 @@ export async function createSyllabusSession(
 }
 
 async function requireSessionInOrg(sessionId: string, organizationId: string) {
-  const [row] = await db
-    .select({ syllabusId: syllabuses.id })
-    .from(syllabusSessions)
-    .innerJoin(syllabuses, eq(syllabusSessions.syllabusId, syllabuses.id))
-    .where(
-      and(
-        eq(syllabusSessions.id, sessionId),
-        eq(syllabuses.organizationId, organizationId),
-      ),
-    )
-    .limit(1);
+  const [row] = await withDbRetry(() =>
+    db
+      .select({ syllabusId: syllabuses.id })
+      .from(syllabusSessions)
+      .innerJoin(syllabuses, eq(syllabusSessions.syllabusId, syllabuses.id))
+      .where(
+        and(
+          eq(syllabusSessions.id, sessionId),
+          eq(syllabuses.organizationId, organizationId),
+        ),
+      )
+      .limit(1),
+  );
 
   return row ?? null;
 }
@@ -521,7 +536,12 @@ export async function createScheduleItem(
   sessionId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const ctx = await requireAuthContext();
+  let ctx;
+  try {
+    ctx = await requireAuthContext();
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
   const parsed = scheduleItemSchema.safeParse(input);
   if (!parsed.success) {
     return failure(
@@ -530,28 +550,42 @@ export async function createScheduleItem(
     );
   }
 
-  const session = await requireSessionInOrg(sessionId, ctx.organizationId);
+  let session;
+  try {
+    session = await requireSessionInOrg(sessionId, ctx.organizationId);
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
   if (!session) return failure("回が見つかりません");
 
-  const [{ maxSort }] = await db
-    .select({
-      maxSort: sql<number>`coalesce(max(${sessionScheduleItems.sortOrder}), -1)`,
-    })
-    .from(sessionScheduleItems)
-    .where(eq(sessionScheduleItems.sessionId, sessionId));
+  let row;
+  try {
+    const [{ maxSort }] = await withDbRetry(() =>
+      db
+        .select({
+          maxSort: sql<number>`coalesce(max(${sessionScheduleItems.sortOrder}), -1)`,
+        })
+        .from(sessionScheduleItems)
+        .where(eq(sessionScheduleItems.sessionId, sessionId)),
+    );
 
-  const [row] = await db
-    .insert(sessionScheduleItems)
-    .values({
-      sessionId,
-      sortOrder: maxSort + 1,
-      time: parsed.data.time,
-      content: parsed.data.content,
-      teacherAction: parsed.data.teacherAction?.trim() || null,
-      studentActivity: parsed.data.studentActivity?.trim() || null,
-      materials: parsed.data.materials?.trim() || null,
-    })
-    .returning({ id: sessionScheduleItems.id });
+    [row] = await withDbRetry(() =>
+      db
+        .insert(sessionScheduleItems)
+        .values({
+          sessionId,
+          sortOrder: maxSort + 1,
+          time: parsed.data.time,
+          content: parsed.data.content,
+          teacherAction: parsed.data.teacherAction?.trim() || null,
+          studentActivity: parsed.data.studentActivity?.trim() || null,
+          materials: parsed.data.materials?.trim() || null,
+        })
+        .returning({ id: sessionScheduleItems.id }),
+    );
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
 
   revalidatePath(`/syllabuses/${session.syllabusId}`);
   return success({ id: row.id });
@@ -634,7 +668,12 @@ export async function createSessionSlide(
   sessionId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const ctx = await requireAuthContext();
+  let ctx;
+  try {
+    ctx = await requireAuthContext();
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
   const parsed = sessionSlideSchema.safeParse(input);
   if (!parsed.success) {
     return failure(
@@ -643,26 +682,40 @@ export async function createSessionSlide(
     );
   }
 
-  const session = await requireSessionInOrg(sessionId, ctx.organizationId);
+  let session;
+  try {
+    session = await requireSessionInOrg(sessionId, ctx.organizationId);
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
   if (!session) return failure("回が見つかりません");
 
-  const [{ maxSort }] = await db
-    .select({
-      maxSort: sql<number>`coalesce(max(${sessionSlides.sortOrder}), -1)`,
-    })
-    .from(sessionSlides)
-    .where(eq(sessionSlides.sessionId, sessionId));
+  let row;
+  try {
+    const [{ maxSort }] = await withDbRetry(() =>
+      db
+        .select({
+          maxSort: sql<number>`coalesce(max(${sessionSlides.sortOrder}), -1)`,
+        })
+        .from(sessionSlides)
+        .where(eq(sessionSlides.sessionId, sessionId)),
+    );
 
-  const [row] = await db
-    .insert(sessionSlides)
-    .values({
-      sessionId,
-      sortOrder: maxSort + 1,
-      title: parsed.data.title,
-      linkUrl: parsed.data.linkUrl,
-      linkProvider: parsed.data.linkProvider,
-    })
-    .returning({ id: sessionSlides.id });
+    [row] = await withDbRetry(() =>
+      db
+        .insert(sessionSlides)
+        .values({
+          sessionId,
+          sortOrder: maxSort + 1,
+          title: parsed.data.title,
+          linkUrl: parsed.data.linkUrl,
+          linkProvider: parsed.data.linkProvider,
+        })
+        .returning({ id: sessionSlides.id }),
+    );
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
 
   revalidatePath(`/syllabuses/${session.syllabusId}`);
   return success({ id: row.id });
@@ -672,7 +725,12 @@ export async function createSessionReference(
   sessionId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const ctx = await requireAuthContext();
+  let ctx;
+  try {
+    ctx = await requireAuthContext();
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
   const parsed = sessionReferenceSchema.safeParse(input);
   if (!parsed.success) {
     return failure(
@@ -681,27 +739,41 @@ export async function createSessionReference(
     );
   }
 
-  const session = await requireSessionInOrg(sessionId, ctx.organizationId);
+  let session;
+  try {
+    session = await requireSessionInOrg(sessionId, ctx.organizationId);
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
   if (!session) return failure("回が見つかりません");
 
-  const [{ maxSort }] = await db
-    .select({
-      maxSort: sql<number>`coalesce(max(${sessionReferences.sortOrder}), -1)`,
-    })
-    .from(sessionReferences)
-    .where(eq(sessionReferences.sessionId, sessionId));
+  let row;
+  try {
+    const [{ maxSort }] = await withDbRetry(() =>
+      db
+        .select({
+          maxSort: sql<number>`coalesce(max(${sessionReferences.sortOrder}), -1)`,
+        })
+        .from(sessionReferences)
+        .where(eq(sessionReferences.sessionId, sessionId)),
+    );
 
-  const [row] = await db
-    .insert(sessionReferences)
-    .values({
-      sessionId,
-      sortOrder: maxSort + 1,
-      title: parsed.data.title,
-      url: parsed.data.url,
-      type: parsed.data.type?.trim() || null,
-      memo: parsed.data.memo?.trim() || null,
-    })
-    .returning({ id: sessionReferences.id });
+    [row] = await withDbRetry(() =>
+      db
+        .insert(sessionReferences)
+        .values({
+          sessionId,
+          sortOrder: maxSort + 1,
+          title: parsed.data.title,
+          url: parsed.data.url,
+          type: parsed.data.type?.trim() || null,
+          memo: parsed.data.memo?.trim() || null,
+        })
+        .returning({ id: sessionReferences.id }),
+    );
+  } catch (error) {
+    return failure(toActionErrorMessage(error));
+  }
 
   revalidatePath(`/syllabuses/${session.syllabusId}`);
   return success({ id: row.id });
