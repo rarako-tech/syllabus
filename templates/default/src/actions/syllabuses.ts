@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { syllabuses } from "@/db/schema";
 import { failure, success, type ActionResult } from "@/lib/action-result";
 import { requireAuthContext, requireOrgRole } from "@/lib/auth";
+import { withDbRetry } from "@/lib/db-retry";
 import { syllabusSchema } from "@/lib/validations/syllabus";
 
 export type SyllabusRow = {
@@ -35,25 +36,29 @@ export async function listSyllabuses(query?: {
     );
   }
 
-  return db
-    .select()
-    .from(syllabuses)
-    .where(and(...conditions))
-    .orderBy(desc(syllabuses.updatedAt));
+  return withDbRetry(() =>
+    db
+      .select()
+      .from(syllabuses)
+      .where(and(...conditions))
+      .orderBy(desc(syllabuses.updatedAt)),
+  );
 }
 
 export async function getSyllabus(id: string) {
   const ctx = await requireAuthContext();
-  const [row] = await db
-    .select()
-    .from(syllabuses)
-    .where(
-      and(
-        eq(syllabuses.id, id),
-        eq(syllabuses.organizationId, ctx.organizationId),
-      ),
-    )
-    .limit(1);
+  const [row] = await withDbRetry(() =>
+    db
+      .select()
+      .from(syllabuses)
+      .where(
+        and(
+          eq(syllabuses.id, id),
+          eq(syllabuses.organizationId, ctx.organizationId),
+        ),
+      )
+      .limit(1),
+  );
   return row ?? null;
 }
 
